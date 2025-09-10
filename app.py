@@ -1,29 +1,34 @@
 import gradio as gr
 import joblib
 import pandas as pd
-import numpy as np
 
-# --- 1. Load Model and Preprocessing Components ---
+# --- 1. Load All Models ---
 # This part runs only once when the app starts.
+# We'll load all models to memory for quick access.
+models = {}
 try:
-    # Replace 'catboost_price_predictor.pkl' with the actual path to your saved model file
-    model = joblib.load('final_catboost_model.pkl')
-    print("Model loaded successfully.")
+    models['CatBoost'] = joblib.load('final_catboost_model.pkl')
+    models['RandomForest'] = joblib.load('rf_pipeline.pkl')
+    models['LR'] = joblib.load('random_forest.pkl')
+    print("All models loaded successfully.")
 except FileNotFoundError:
-    model = None
-    print("Error: Model file 'catboost_price_predictor.pkl' not found.")
-    print("Please make sure your model file is in the same directory as this script.")
+    print("Error: One or more model files not found.")
+    print("Please make sure all model files are in the same directory.")
+    models = {} # Clear models if any are missing
 
 # --- 2. Define the Prediction Function ---
-def predict_price(num_room, area, lat, lon, 
+def predict_price(selected_model, num_room, area, lat, lon,
                   tip_predlozheniya, seriya, otopleniye, sostoyaniye,
                   material_doma, god_postroyki, tekushchiy_etazh,
                   vsego_etazhey):
+    
+    # Check if the selected model exists
+    if selected_model not in models or models[selected_model] is None:
+        return "Error: The selected model could not be loaded."
 
-    # Check if the model was loaded
-    if model is None:
-        return "Error: The model could not be loaded. Check your file path."
-
+    # Select the model based on user input
+    model = models[selected_model]
+    
     # Create a DataFrame from the user inputs
     input_data = pd.DataFrame([{
         'num_room': num_room,
@@ -39,21 +44,15 @@ def predict_price(num_room, area, lat, lon,
         'Текущий_этаж': tekushchiy_etazh,
         'Всего_этажей': vsego_etazhey
     }])
-
-    # Reorder columns to match the training data
-    # This step is crucial for pipeline consistency
-    feature_order = ['num_room', 'area', 'address','lat', 'lon',
+    
+    # This step is crucial for pipeline consistency, as before
+    feature_order = ['num_room', 'area', 'address', 'lat', 'lon',
                      'Тип предложения', 'Серия', 'Отопление',
-                     'Состояние','Материал_дома', 'Год_постройки', 
-                     'Текущий_этаж','Всего_этажей']
+                     'Состояние', 'Материал_дома', 'Год_постройки',
+                     'Текущий_этаж', 'Всего_этажей']
     
-    # We are missing the 'address' column, so we'll add a placeholder to avoid errors.
-    # The CatBoost model can handle this as long as the categorical_features list is correct.
-    # For a robust solution, you would need to process this user input.
-    input_data['address'] = 'dummy_address' 
-    
-    # Ensure the order of columns matches what the model was trained on
-    input_data = input_data.reindex(columns=feature_order)
+    input_data['address'] = 'dummy_address'
+    input_data = input_data.reindex(columns=feature_order, fill_value=0) # Ensure all features are present
 
     # Make the prediction
     prediction = model.predict(input_data)[0]
@@ -61,30 +60,35 @@ def predict_price(num_room, area, lat, lon,
     return f"Predicted Price: ${prediction:,.2f}"
 
 # --- 3. Set up the Gradio Interface ---
-# Define the input components for the UI
+# We add a Radio button for the user to choose the model
+model_selector = gr.Radio(
+    choices=['CatBoost', 'RandomForest', 'LR'],
+    label="Choose a Model",
+    value='CatBoost'  # Default value
+)
+
 inputs = [
+    model_selector,  # This is the new input
     gr.Number(label="Number of Rooms"),
     gr.Number(label="Area (m²)"),
     gr.Number(label="Latitude"),
     gr.Number(label="Longitude"),
-    gr.Textbox(label="Offer Type (e.g., от агента, от собственника)"),
-    gr.Textbox(label="Building Series (e.g., элитка, 106 серия)"),
-    gr.Textbox(label="Heating Type (e.g., на газе, центральное)"),
-    gr.Textbox(label="Condition (e.g., евроремонт, без ремонта)"),
-    gr.Textbox(label="Building Material (e.g., кирпичный, монолитный)"),
+    gr.Textbox(label="Offer Type"),
+    gr.Textbox(label="Building Series"),
+    gr.Textbox(label="Heating Type"),
+    gr.Textbox(label="Condition"),
+    gr.Textbox(label="Building Material"),
     gr.Number(label="Year of Construction"),
     gr.Number(label="Current Floor"),
     gr.Number(label="Total Floors")
 ]
 
-# Set up the output component
 output = gr.Textbox(label="Prediction Result")
 
-# Create and launch the Gradio interface
 gr.Interface(
     fn=predict_price,
     inputs=inputs,
     outputs=output,
     title="Bishkek Real Estate Price Predictor",
-    description="Enter the features of an apartment to get a price prediction."
+    description="Enter the features of an apartment and choose a model to get a price prediction."
 ).launch()
