@@ -29,7 +29,7 @@ The goal is to predict apartment prices (target column: `usd_price`) for listing
    - Baselines: Linear Regression, Ridge/Lasso (pipelines with ColumnTransformer).
    - Tree-based: Decision Tree, Random Forest.
    - Gradient-tree boosting: CatBoost (uses native categorical support), with Optuna tuning for MAPE/RMSE.
-   - Optional: HDBSCAN used as a clustering feature (cluster label appended as categorical).
+   
 
 4. **Evaluation**
    - R², MAE, MAPE, MSE/RMSE
