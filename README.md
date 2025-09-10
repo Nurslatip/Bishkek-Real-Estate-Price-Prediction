@@ -5,6 +5,8 @@ This repository contains notebooks, scripts, and trained model artifacts used to
 
 ---
 
+Models are deployed as a web application on Hugging Face Spaces (Gradio)
+
 ## 🔎 Project Overview
 
 The goal is to predict apartment prices (target column: `usd_price`) for listings in Bishkek. The dataset contains listing text, location, building and apartment attributes, and marketplace metadata. We focus on careful preprocessing and feature engineering to make models robust on limited data.
